@@ -1122,3 +1122,33 @@ def test_dataset_with_mosaic_mds_data(tmpdir):
         assert len(batch["image"]) == 4
         assert list(batch["class"]) == [4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3]
         i += 1
+
+
+@pytest.mark.parametrize(
+    "compression",
+    [
+        pytest.param(None),
+        pytest.param("zstd", marks=pytest.mark.skipif(condition=not _ZSTD_AVAILABLE, reason="Requires: ['zstd']")),
+    ],
+)
+def test_dataset_for_custom_cache_dir(tmpdir, compression):
+    # tmp_local = f'local:{tmpdir}'
+    data_dir = os.path.join(tmpdir, "data")
+    # cache_dir = os.path.join(tmpdir, "cache_dir")
+
+    os.makedirs(data_dir)
+
+    cache = Cache(input_dir=str(data_dir), chunk_size=10, compression=compression)
+    for i in range(101):
+        cache[i] = i
+
+    cache.done()
+    cache.merge()
+
+    custom_cache_dir = "/tmp/custom_cache"
+    dataset = StreamingDataset(input_dir=Dir(None, data_dir), cache_dir=f"{custom_cache_dir}/chunks")
+
+    for i in range(101):
+        assert dataset[i] == i
+
+    assert f"{custom_cache_dir}/chunks/" in dataset.input_dir.path

@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from unittest import mock
 
 from litdata.constants import _INDEX_FILENAME
@@ -25,6 +26,12 @@ def test_should_replace_path():
 def test_try_create_cache_dir():
     with mock.patch.dict(os.environ, {}, clear=True):
         assert os.path.join("chunks", "100b8cad7cf2a56f6df78f171f97a1ec") in _try_create_cache_dir("any")
+
+        custom_cache_dir = "./custom_cache"
+        assert os.path.join("custom_cache", "chunks", "100b8cad7cf2a56f6df78f171f97a1ec") in _try_create_cache_dir(
+            "any", f"{custom_cache_dir}/chunks"
+        )
+        shutil.rmtree(custom_cache_dir)
 
     # the cache dir creating at /cache requires root privileges, so we need to mock `os.makedirs()`
     with (

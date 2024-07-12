@@ -19,6 +19,7 @@ def subsample_streaming_dataset(
     subsample: float = 1.0,
     shuffle: bool = False,
     seed: int = 42,
+    custom_cache_dir: Optional[str] = None,
 ) -> Tuple[List[str], List[Tuple[int, int]]]:
     """Subsample streaming dataset.
 
@@ -35,7 +36,9 @@ def subsample_streaming_dataset(
 
     # Make sure input_dir contains cache path and remote url
     if _should_replace_path(input_dir.path):
-        cache_path = _try_create_cache_dir(input_dir=input_dir.path if input_dir.path else input_dir.url)
+        cache_path = _try_create_cache_dir(
+            input_dir=input_dir.path if input_dir.path else input_dir.url, custom_cache_dir=custom_cache_dir
+        )
         if cache_path is not None:
             input_dir.path = cache_path
 
@@ -90,10 +93,10 @@ def _should_replace_path(path: Optional[str]) -> bool:
     return path.startswith("/teamspace/datasets/") or path.startswith("/teamspace/s3_connections/")
 
 
-def _try_create_cache_dir(input_dir: Optional[str]) -> Optional[str]:
+def _try_create_cache_dir(input_dir: Optional[str], custom_cache_dir: Optional[str] = None) -> Optional[str]:
     hash_object = hashlib.md5((input_dir or "").encode())  # noqa: S324
     if "LIGHTNING_CLUSTER_ID" not in os.environ or "LIGHTNING_CLOUD_PROJECT_ID" not in os.environ:
-        cache_dir = os.path.join(_DEFAULT_CACHE_DIR, hash_object.hexdigest())
+        cache_dir = os.path.join(custom_cache_dir or _DEFAULT_CACHE_DIR, hash_object.hexdigest())
         os.makedirs(cache_dir, exist_ok=True)
         return cache_dir
     cache_dir = os.path.join("/cache", "chunks", hash_object.hexdigest())
