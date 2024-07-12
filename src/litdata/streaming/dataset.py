@@ -47,6 +47,7 @@ class StreamingDataset(IterableDataset):
         drop_last: Optional[bool] = None,
         seed: int = 42,
         serializers: Optional[Dict[str, Serializer]] = None,
+        cache_dir: Optional[str] = None,
         max_cache_size: Union[int, str] = "100GB",
         subsample: float = 1.0,
     ) -> None:
@@ -62,6 +63,7 @@ class StreamingDataset(IterableDataset):
                 and `False` otherwise.
             seed: Random seed for shuffling.
             serializers: The serializers used to serialize and deserialize the chunks.
+            cache_dir: Path to th efolder where the cache chunks will be stored.
             max_cache_size: The maximum cache size used by the StreamingDataset.
             subsample: Float representing fraction of the dataset to be randomly sampled (e.g., 0.1 => 10% of dataset).
 
@@ -76,10 +78,11 @@ class StreamingDataset(IterableDataset):
         input_dir = _resolve_dir(input_dir)
 
         self.input_dir = input_dir
+        self.cache_dir = cache_dir
         self.subsampled_files: List[str] = []
         self.region_of_interest: List[Tuple[int, int]] = []
         self.subsampled_files, self.region_of_interest = subsample_streaming_dataset(
-            self.input_dir, item_loader, subsample, shuffle, seed
+            self.input_dir, item_loader, subsample, shuffle, seed, self.cache_dir
         )
 
         self.item_loader = item_loader
@@ -140,7 +143,8 @@ class StreamingDataset(IterableDataset):
     def _create_cache(self, worker_env: _WorkerEnv) -> Cache:
         if _should_replace_path(self.input_dir.path):
             cache_path = _try_create_cache_dir(
-                input_dir=self.input_dir.path if self.input_dir.path else self.input_dir.url
+                input_dir=self.input_dir.path if self.input_dir.path else self.input_dir.url,
+                custom_cache_dir=self.cache_dir,
             )
             if cache_path is not None:
                 self.input_dir.path = cache_path
@@ -394,7 +398,8 @@ class StreamingDataset(IterableDataset):
         # In this case, validate the cache folder is the same.
         if _should_replace_path(state["input_dir_path"]):
             cache_path = _try_create_cache_dir(
-                input_dir=state["input_dir_path"] if state["input_dir_path"] else state["input_dir_url"]
+                input_dir=state["input_dir_path"] if state["input_dir_path"] else state["input_dir_url"],
+                custom_cache_dir=self.cache_dir,
             )
             if cache_path != self.input_dir.path:
                 raise ValueError(
